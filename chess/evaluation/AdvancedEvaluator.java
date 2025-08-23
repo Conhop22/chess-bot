@@ -1,5 +1,8 @@
 package chess.evaluation;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import chess.board.ArrayBoard;
 import chess.board.ArrayPiece;
 import chess.util.Iteratorable;
@@ -279,6 +282,106 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 		return playerValue - opponentValue;
 	}	
 
+	private ArrayPiece getPinnedPiece(ArrayBoard board, ArrayPiece attacker, ArrayPiece[][] pieceMap) {
+    int attackerType = attacker.type();
+    if (attackerType != ArrayPiece.BISHOP && attackerType != ArrayPiece.ROOK && attackerType != ArrayPiece.QUEEN) {
+        return null;
+    }
+
+    int[][] directions;
+    if (attackerType == ArrayPiece.BISHOP) {
+        directions = new int[][]{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+    } else if (attackerType == ArrayPiece.ROOK) {
+        directions = new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    } else {
+        directions = new int[][]{
+            {1, 1}, {1, -1}, {-1, 1}, {-1, -1},
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1}
+        };
+    }
+
+    int attackerColor = attacker.color();
+    int opponentColor = (attackerColor == WHITE) ? BLACK : WHITE;
+
+    for (int[] dir : directions) {
+        int row = attacker.row();
+        int col = attacker.col();
+        boolean foundBlocker = false;
+        ArrayPiece blocker = null;
+
+        while (true) {
+            row += dir[0];
+            col += dir[1];
+
+            if (row < 0 || row >= 8 || col < 0 || col >= 8) break;
+
+            ArrayPiece piece = pieceMap[row][col];
+            if (piece == null) continue;
+
+            if (piece.color() == attackerColor) break; // Friendly piece blocks
+
+            if (!foundBlocker) {
+                blocker = piece;
+                foundBlocker = true;
+            } else {
+                // Second piece along the ray
+                if (piece.color() == opponentColor && piece.type() == ArrayPiece.KING) {
+                    return blocker; // The blocker is pinned to the king
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+	private int getBaseValue(int pieceType) {
+    switch (pieceType) {
+        case ArrayPiece.PAWN:   return pawnValue;
+        case ArrayPiece.KNIGHT: return knightValue;
+        case ArrayPiece.BISHOP: return bishopValue;
+        case ArrayPiece.ROOK:   return rookValue;
+        case ArrayPiece.QUEEN:  return queenValue;
+        case ArrayPiece.KING:   return kingValue;
+        default: return 0;
+    }
+}
+	private ArrayPiece pieceAt(ArrayBoard board, int row, int col) {
+    for (ArrayPiece p : board.allPieces()) {
+        if (p.row() == row && p.col() == col) {
+            return p;
+        }
+    }
+    return null;
+}
+	private boolean isOnBoard(int row, int col) {
+    return row >= 0 && row < 8 && col >= 0 && col < 8;
+}
+	private List<int[]> getAttackedSquares(ArrayBoard board, ArrayPiece piece) {
+    List<int[]> squares = new ArrayList<>();
+
+    // Example for knights (you'll need to handle other types)
+    if (piece.type() == ArrayPiece.KNIGHT) {
+        int[][] deltas = {
+            {-2, -1}, {-1, -2}, {1, -2}, {2, -1},
+            {2, 1}, {1, 2}, {-1, 2}, {-2, 1}
+        };
+
+        for (int[] d : deltas) {
+            int r = piece.row() + d[0];
+            int c = piece.col() + d[1];
+            if (isOnBoard(r, c)) {
+                squares.add(new int[]{r, c});
+            }
+        }
+    }
+
+    // Add logic for other piece types (bishops, rooks, pawns, etc.)
+    return squares;
+}
+
+
 	private int getValueOfPieces(ArrayBoard board, int player, boolean isEndGame) {
 
 		Iteratorable<ArrayPiece> pieces = board.allPiecesOfColor(player);
@@ -327,6 +430,10 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 		}
 
 		int value = 0;		
+		ArrayPiece[][] pieceMap = new ArrayPiece[8][8];
+for (ArrayPiece p : board.allPieces()) {
+    pieceMap[p.row()][p.col()] = p;
+}
 		for(ArrayPiece piece : pieces) {
 			switch(piece.type()) {
 			case ArrayPiece.PAWN:
@@ -350,6 +457,37 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 				value += kingValue + kingPos[piece.row()][piece.col()];
 				break;
 			}
+			ArrayPiece pinned = getPinnedPiece(board, piece, pieceMap);
+    if (pinned != null) {
+        int pinBonus = getBaseValue(pinned.type()) / 2;
+        value += pinBonus;
+    }
+
+	 for (int[] square : getAttackedSquares(board, piece)) {
+        int targetRow = square[0];
+        int targetCol = square[1];
+
+        ArrayPiece target = pieceAt(board, targetRow, targetCol);
+        
+        // Captures or Attacks
+        if (target != null && target.color() != piece.color()) {
+            int attackerValue = getBaseValue(piece.type());
+            int targetValue = getBaseValue(target.type());
+
+            if (targetValue > 0 && attackerValue < targetValue) {
+                value += targetValue / 2; // Attack bonus
+            }
+
+            // Add capture bonus
+            value += 15;
+        }
+
+        // Check bonus — if attacking the king
+        if (target != null && target.type() == ArrayPiece.KING && target.color() != piece.color()) {
+            value += 30;
+        }
+    }
+	
 		}
 
 		// Give two bishops a bonus depending on pawns
