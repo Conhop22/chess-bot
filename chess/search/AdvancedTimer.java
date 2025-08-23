@@ -14,7 +14,7 @@ public class AdvancedTimer implements Timer {
 	private static final int FORCE_TIMEOUT_TIME = 2000;
 	
 	// When we're running low on time, let searcher know to hurry up
-	private static final int HURRY_UP_TIME = 10000;
+	private static final int HURRY_UP_TIME = 100000;
 
 	// > 85% of matches finish in this many moves. From:
 	// http://facta.junis.ni.ac.rs/acar/acar200901/acar2009-07.pdf
