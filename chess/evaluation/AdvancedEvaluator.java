@@ -459,7 +459,7 @@ for (ArrayPiece p : board.allPieces()) {
 			}
 			ArrayPiece pinned = getPinnedPiece(board, piece, pieceMap);
     if (pinned != null) {
-        int pinBonus = getBaseValue(pinned.type()) / 2;
+        int pinBonus = getBaseValue(pinned.type()) * 2;
         value += pinBonus;
     }
 
@@ -475,16 +475,16 @@ for (ArrayPiece p : board.allPieces()) {
             int targetValue = getBaseValue(target.type());
 
             if (targetValue > 0 && attackerValue < targetValue) {
-                value += targetValue / 2; // Attack bonus
+                value += targetValue * 10; // Attack bonus
             }
 
             // Add capture bonus
-            value += 15;
+            value += 30;
         }
 
         // Check bonus — if attacking the king
         if (target != null && target.type() == ArrayPiece.KING && target.color() != piece.color()) {
-            value += 30;
+            value += 80;
         }
     }
 	
