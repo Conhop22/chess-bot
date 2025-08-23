@@ -279,7 +279,14 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 				(endOpponentValue * phase)) / PHASE_CONSTANT;
 
 		// Return the difference between our current score and opponents
-		return playerValue - opponentValue;
+		if (playerValue < MATE - 1000){
+			return playerValue - opponentValue - 300;
+			
+		}else{
+			return playerValue - opponentValue;
+
+		}
+		
 	}	
 
 	private ArrayPiece getPinnedPiece(ArrayBoard board, ArrayPiece attacker, ArrayPiece[][] pieceMap) {
@@ -484,7 +491,7 @@ for (ArrayPiece p : board.allPieces()) {
 
         // Check bonus — if attacking the king
         if (target != null && target.type() == ArrayPiece.KING && target.color() != piece.color()) {
-            value += 80;
+            value += 150;
         }
     }
 	
