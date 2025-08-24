@@ -279,11 +279,15 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 				(endOpponentValue * phase)) / PHASE_CONSTANT;
 
 		// Return the difference between our current score and opponents
+		int playerMobility = calculateMobility(board, player);
+		int opponentMobility = calculateMobility(board, opponent);
+
+		int mobilityScore = (playerMobility - opponentMobility) * 2;
 		if (playerValue < MATE - 1000){
-			return playerValue - opponentValue - 300;
+			return (playerValue + mobilityScore) - opponentValue - 3000000;
 			
 		}else{
-			return playerValue - opponentValue;
+			return (playerValue + mobilityScore) - opponentValue;
 
 		}
 		
@@ -354,6 +358,16 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
         default: return 0;
     }
 }
+	private int calculateMobility(ArrayBoard board, int player) {
+    int mobility = 0;
+    Iteratorable<ArrayPiece> pieces = board.allPiecesOfColor(player);
+
+    for (ArrayPiece piece : pieces) {
+        mobility += getAttackedSquares(board, piece).size();
+    }
+
+    return mobility;
+}
 	private ArrayPiece pieceAt(ArrayBoard board, int row, int col) {
     for (ArrayPiece p : board.allPieces()) {
         if (p.row() == row && p.col() == col) {
@@ -367,25 +381,92 @@ public class AdvancedEvaluator implements Evaluator<ArrayBoard> {
 }
 	private List<int[]> getAttackedSquares(ArrayBoard board, ArrayPiece piece) {
     List<int[]> squares = new ArrayList<>();
+    int row = piece.row();
+    int col = piece.col();
+    int color = piece.color();
+    int opponentColor = (color == WHITE) ? BLACK : WHITE;
 
-    // Example for knights (you'll need to handle other types)
-    if (piece.type() == ArrayPiece.KNIGHT) {
-        int[][] deltas = {
-            {-2, -1}, {-1, -2}, {1, -2}, {2, -1},
-            {2, 1}, {1, 2}, {-1, 2}, {-2, 1}
-        };
-
-        for (int[] d : deltas) {
-            int r = piece.row() + d[0];
-            int c = piece.col() + d[1];
-            if (isOnBoard(r, c)) {
-                squares.add(new int[]{r, c});
+    switch (piece.type()) {
+        case ArrayPiece.PAWN:
+            int direction = (color == WHITE) ? -1 : 1;
+            int[][] pawnAttacks = {{direction, -1}, {direction, 1}};
+            for (int[] d : pawnAttacks) {
+                int r = row + d[0];
+                int c = col + d[1];
+                if (isOnBoard(r, c)) {
+                    squares.add(new int[]{r, c});
+                }
             }
-        }
+            break;
+
+        case ArrayPiece.KNIGHT:
+            int[][] knightMoves = {
+                {-2, -1}, {-1, -2}, {1, -2}, {2, -1},
+                {2, 1}, {1, 2}, {-1, 2}, {-2, 1}
+            };
+            for (int[] d : knightMoves) {
+                int r = row + d[0];
+                int c = col + d[1];
+                if (isOnBoard(r, c)) {
+                    squares.add(new int[]{r, c});
+                }
+            }
+            break;
+
+        case ArrayPiece.BISHOP:
+            addSlidingAttacks(squares, board, row, col, color, new int[][] {
+                {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+            });
+            break;
+
+        case ArrayPiece.ROOK:
+            addSlidingAttacks(squares, board, row, col, color, new int[][] {
+                {1, 0}, {-1, 0}, {0, 1}, {0, -1}
+            });
+            break;
+
+        case ArrayPiece.QUEEN:
+            addSlidingAttacks(squares, board, row, col, color, new int[][] {
+                {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+                {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+            });
+            break;
+
+        case ArrayPiece.KING:
+            int[][] kingMoves = {
+                {-1, -1}, {-1, 0}, {-1, 1},
+                {0, -1},          {0, 1},
+                {1, -1},  {1, 0}, {1, 1}
+            };
+            for (int[] d : kingMoves) {
+                int r = row + d[0];
+                int c = col + d[1];
+                if (isOnBoard(r, c)) {
+                    squares.add(new int[]{r, c});
+                }
+            }
+            break;
     }
 
-    // Add logic for other piece types (bishops, rooks, pawns, etc.)
     return squares;
+}
+	private void addSlidingAttacks(List<int[]> squares, ArrayBoard board, int row, int col, int color, int[][] directions) {
+    for (int[] dir : directions) {
+        int r = row + dir[0];
+        int c = col + dir[1];
+
+        while (isOnBoard(r, c)) {
+            squares.add(new int[]{r, c});  // We "see" this square.
+
+            ArrayPiece target = pieceAt(board, r, c);
+            if (target != null) {
+                break; // Stop if a piece blocks further vision.
+            }
+
+            r += dir[0];
+            c += dir[1];
+        }
+    }
 }
 
 
@@ -466,9 +547,88 @@ for (ArrayPiece p : board.allPieces()) {
 			}
 			ArrayPiece pinned = getPinnedPiece(board, piece, pieceMap);
     if (pinned != null) {
-        int pinBonus = getBaseValue(pinned.type()) * 2;
+        int pinBonus = getBaseValue(pinned.type());
         value += pinBonus;
     }
+
+	boolean isDefended = false;
+boolean isAttacked = false;
+
+for (ArrayPiece p : board.allPieces()) {
+    if (p.color() != piece.color()) {   // only opposite color pieces
+        List<int[]> attacks = getAttackedSquares(board, p);
+        for (int[] sq : attacks) {
+            if (sq[0] == piece.row() && sq[1] == piece.col()) {
+                isAttacked = true;
+                break;
+            }
+        }
+    }
+}
+
+if (isAttacked) {
+    boolean isDefendeid = false;
+    int lowestDefenderValue = Integer.MAX_VALUE;
+
+    for (ArrayPiece defender : board.allPieces()) {
+        if (defender.color() == piece.color()) {
+            for (int[] defSq : getAttackedSquares(board, defender)) {
+                if (defSq[0] == piece.row() && defSq[1] == piece.col()) {
+                    isDefendeid = true;
+                    int defenderValue = getBaseValue(defender.type());
+                    if (defenderValue < lowestDefenderValue) {
+                        lowestDefenderValue = defenderValue;
+                    }
+                }
+            }
+        }
+    }
+    if (!isDefendeid) {
+        // Strong penalty if attacked and undefended
+        value -= getBaseValue(piece.type()) * 500;
+    } else {
+        // Moderate penalty if defended but attacked by cheaper pieces
+        int lowestAttackerValue = Integer.MAX_VALUE;
+        for (ArrayPiece attacker : board.allPieces()) {
+            if (attacker.color() != piece.color()) {
+                for (int[] sq : getAttackedSquares(board, attacker)) {
+                    if (sq[0] == piece.row() && sq[1] == piece.col()) {
+                        int attackerVal = getBaseValue(attacker.type());
+                        if (attackerVal < lowestAttackerValue) {
+                            lowestAttackerValue = attackerVal;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (lowestAttackerValue < getBaseValue(piece.type())) {
+            value -= (getBaseValue(piece.type()) - lowestAttackerValue) * 200;
+        }
+    }
+}
+
+if (isAttacked) {
+    int lowestAttackerValue = Integer.MAX_VALUE;
+
+    for (ArrayPiece p : board.allPieces()) {
+        if (p.color() != piece.color()) {
+            for (int[] sq : getAttackedSquares(board, p)) {
+                if (sq[0] == piece.row() && sq[1] == piece.col()) {
+                    int attackerVal = getBaseValue(p.type());
+                    if (attackerVal < lowestAttackerValue) {
+                        lowestAttackerValue = attackerVal;
+                    }
+                }
+            }
+        }
+    }
+
+    // If an attacker is cheaper than the piece being attacked, penalize it
+    if (lowestAttackerValue < getBaseValue(piece.type())) {
+        value -= getBaseValue(piece.type()) - lowestAttackerValue;
+    }
+}
 
 	 for (int[] square : getAttackedSquares(board, piece)) {
         int targetRow = square[0];
@@ -486,7 +646,39 @@ for (ArrayPiece p : board.allPieces()) {
             }
 
             // Add capture bonus
-            value += 30;
+            for (ArrayPiece attacker : board.allPieces()) {
+    if (attacker.color() != piece.color()) continue; // only evaluate bot's own pieces
+
+    List<int[]> attacks = getAttackedSquares(board, attacker);
+
+    for (int[] squaref : attacks) {
+        ArrayPiece targety = pieceAt(board, squaref[0], squaref[1]);
+
+        if (targety != null && targety.color() != piece.color()) {
+            boolean isDefenderd = false;
+
+            // Check if target is defended
+            for (ArrayPiece defender : board.allPieces()) {
+                if (defender.color() == target.color()) {
+                    List<int[]> defSquares = getAttackedSquares(board, defender);
+                    for (int[] defSq : defSquares) {
+                        if (defSq[0] == squaref[0] && defSq[1] == squaref[1]) {
+                            isDefended = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!isDefenderd) {
+                // Undefended piece — encourage the bot to capture it
+                value += getBaseValue(targety.type()) * 2; // Adjust multiplier as needed
+            } else if(getBaseValue(targety.type()) < getBaseValue(piece.type())) {
+				value += getBaseValue(piece.type()) - getBaseValue(targety.type()) * 2;
+			}
+        }
+    }
+}
         }
 
         // Check bonus — if attacking the king

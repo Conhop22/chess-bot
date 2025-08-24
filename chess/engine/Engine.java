@@ -45,7 +45,7 @@ public class Engine {
 			difficultyDescription = "Hard";
 			break;
 		case ULTRA:			
-			difficultyDescription = "Ultra Hard";
+			difficultyDescription = "Jhyathaghniejl";
 			break;		
 		}
 

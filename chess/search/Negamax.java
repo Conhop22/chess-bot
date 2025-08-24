@@ -51,7 +51,7 @@ extends AbstractSearcher<M,B> {
 	// How deep our quiescence search goes
 	private final int QUIESCENCE_MIN_DEPTH = 2;
 	private final int QUIESCENCE_MID_DEPTH = 5;
-	private final int QUIESCENCE_MAX_DEPTH = 100;
+	private final int QUIESCENCE_MAX_DEPTH = 10;
 
 	// Create hash that contains previously processed nodes.
 	private final int TRANSPOSITION_INIT_ELEMS = 2 << 20;
